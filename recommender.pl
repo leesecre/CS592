@@ -30,11 +30,19 @@ equivalent_lists(List1, List2) :-
 
 /* [DATA LOADING AND PARSING] */
 load_recipes :-
+    write('Loading previous data...'), nl,
+    retractall(available_ingredient(_)),
+    retractall(ingredient_substitute(_)),
+    retractall(excluded_ingredient(_)),
+    load_from_csv('user_data.csv'),
     write('Loading recipes... it will takes some time.'), nl,
     retractall(recipe(_, _, _, _)), % Clear existing recipes
     csv_read_file('recipes.csv', Rows, []),
     maplist(assert_recipe, Rows),
     write('Recipes loaded successfully.').
+
+save_data :-
+    save_to_csv('user_data.csv').
     
 atom_to_list(Atom, List) :-
     read_term_from_atom(Atom, List, []).
@@ -44,6 +52,66 @@ assert_recipe(Row) :-
     atom_to_list(IngredientsAtom, Ingredients), % string to List
     atom_to_list(StepsAtom, Steps),
     assertz(recipe(Name, Ingredients, Steps, Description)).
+
+/* User data loading */
+load_from_csv(FileName) :-
+    open(FileName, read, Stream),
+    read_file(Stream),
+    close(Stream).
+
+read_file(Stream) :-
+    read_line_to_string(Stream, Line),
+    Line \= end_of_file,
+    split_string(Line, ",", "", [Predicate|Args]),
+    assert_fact(Predicate, Args),
+    read_file(Stream).
+read_file(_).
+
+assert_fact('available_ingredient', [Ingredient]) :-
+    assertz(available_ingredient(Ingredient)),
+    format('available ingredients loaded.\n').
+
+assert_fact('ingredient_substitute', [Ingredient, Substitute]) :-
+    assertz(ingredient_substitute(Ingredient, Substitute)),
+    format('substitution information loaded.\n').
+
+assert_fact('excluded_ingredient', [Ingredient]) :-
+    assertz(excluded_ingredient(Ingredient)),
+    format('Excluded ingredients loaded.\n').
+
+/* User data saving */
+save_to_csv(FileName) :-
+    open(FileName, write, Stream),
+    write_ingredients(Stream),
+    write_substitutes(Stream),
+    write_exclusions(Stream),
+    close(Stream).
+
+write_ingredients(Stream) :-
+    available_ingredient(Ingredient),
+    write(Stream, 'available_ingredient,'), 
+    write(Stream, Ingredient), 
+    write(Stream, '\n'),
+    fail.
+write_ingredients(_).
+
+write_substitutes(Stream) :-
+    ingredient_substitute(Ingredient, Substitute),
+    write(Stream, 'ingredient_substitute,'), 
+    write(Stream, Ingredient), 
+    write(Stream, ','), 
+    write(Stream, Substitute), 
+    write(Stream, '\n'),
+    fail.
+write_substitutes(_).
+
+write_exclusions(Stream) :-
+    excluded_ingredient(Ingredient),
+    write(Stream, 'excluded_ingredient,'), 
+    write(Stream, Ingredient), 
+    write(Stream, '\n'),
+    fail.
+write_exclusions(_).
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
 /* [Main function] */
@@ -85,6 +153,28 @@ print_list([Head|Tail]) :-
     format('* ~w~n\n', [Head]),
     print_list(Tail).
 
+print_list_skip(List) :-
+    write('['),
+    length(List, Length),
+    (   Length > 10
+    ->  print_first_cut(List, 10)
+    ;   print_all(List) 
+    ),
+    write(']\n\n').
+
+print_first_cut(_, 0) :- 
+    write('...').
+print_first_cut([H|T], N) :-
+    N > 0,
+    write(H), write(', '),
+    N1 is N - 1,
+    print_first_cut(T, N1).
+
+print_all([]).
+print_all([H|T]) :-
+    write(H), write(', '),
+    print_all(T).
+
 print_list_bold([]).
 print_list_bold([Head|Tail]) :-
     format('* ~c[1m~w~c[0m\n', [27,Head,27]),
@@ -107,16 +197,28 @@ print_partial_matches(PartialMatches) :-
     maplist(print_partial_match, PartialMatches).
 
 print_partial_match((Recipe, MissingIngredients)) :-
-    format('* ~c[1m~w~c[0m\nMissing ingredients: ~w~n\n', [27,Recipe,27,MissingIngredients]).
+    format('* ~c[1m~w~c[0m\nMissing ingredients\n', [27,Recipe,27]),
+    print_list_skip(MissingIngredients).
+
+% Predicate to print ingredients, highlighting missing ones in red
+print_ingredients([]).
+print_ingredients([Ingredient|Rest]) :-
+    (   available_ingredient(Ingredient)
+    ->  format('~w, ', [Ingredient])
+    ;   print_red(Ingredient), format(', ')
+    ),
+    print_ingredients(Rest).
 
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
 /* [Recipe handling functions] */
 recipe_details(Name) :-
     recipe(Name, Ingredients, Steps, Description),
-    format('Recipe for ~c[1m~w~c[0m:\n\n', [27, Name, 27]),
+    format('\nRecipe for ~c[1m~w~c[0m:\n\n', [27, Name, 27]),
     format('~c[1mDescription~c[0m:\n~w\n\n', [27,27,Description]),
-    format('~c[1mIngredients~c[0m:\n~w\n\n', [27,27,Ingredients]),
+    format('~c[1mIngredients~c[0m~c[31m(missing)~c[0m\n[', [27,27,27,27]),
+    print_ingredients(Ingredients),
+    format(']\n\n', []),
     format('~c[1mSteps~c[0m:\n\n', [27,27]),
     print_list(Steps).
 
@@ -147,7 +249,7 @@ info:-
    format('~n>                                                                     <',[]),
    format('~n> (Example)                                                           <',[]),
    format('~n> ?- load_recipes.                                                    <',[]),
-   format('~n> ?- recommend_recipes([\'sugar\', \'salt\', \'pork\', \'oil\']).             <',[]),
+   format('~n> ?- recommend_recipes([\'sugar\', \'salt\', \'pork\', \'onion\']).           <',[]),
    format('~n> ?- recipe_details(\'pork strips\').                                   <',[]),
    format('~n>                                                                     <',[]),
    format('~n>~c[1m ------------------------------------------------------------------- ~c[0m<',[27,27]),
