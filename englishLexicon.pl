@@ -280,5 +280,7 @@ lexEntry(av,[syntax:[does],inf:fin,num:sg,pol:pos]).
 lexEntry(av,[syntax:[does,not],inf:fin,num:sg,pol:neg]).
 lexEntry(av,[syntax:[did],inf:fin,num:sg,pol:pos]).
 lexEntry(av,[syntax:[did,not],inf:fin,num:sg,pol:neg]).
+lexEntry(av,[syntax:[can],inf:fin,num:sg,pol:pos]).
+lexEntry(av,[syntax:[can,not],inf:fin,num:sg,pol:neg]).
 
 

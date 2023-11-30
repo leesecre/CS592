@@ -1,29 +1,39 @@
+% Define the extraction predicate
 
+get_functor(Predicate, Functor) :-
+    functor(Predicate, Functor, _).
 
-logical_expression_to_list(egg(Atom), ['egg']).
+extract_constants(egg(_), Constants) :-
+    Constants = ['egg'].
 
+extract_constants(milk(_), Constants) :-
+    Constants = ['milk'].
 
-logical_expression_to_list(Term, [Predicate]) :-
-    Term = ..[Predicate | _Args],
-    var(_Args).
+extract_constants(not(A), Constants) :-
+    extract_constants(A, Constants).
 
+extract_constants(some(_, and(B, C)), Constants) :-
+    extract_constants(B, BConstants),
+    extract_constants(C, CConstants),
+    append(BConstants, CConstants, Constants).
 
-logical_expression_to_list(milk(Atom), ['milk']).
-logical_expression_to_list(burger(Atom), ['burger']).
+extract_constants(and(A, B), Constants) :-
+    extract_constants(A, AConstants),
+    extract_constants(B, BConstants),
+    append(AConstants, BConstants, Constants).
 
+extract_constants(eat(_, _), Constants) :-
+    Constants = [].
 
+extract_constants(with(_, _), Constants) :-
+    Constants = [].
 
+extract_constants(recipe(_), Constants) :-
+    Constants = [].
 
+extract_constants(want(_, _), Constants) :-
+    Constants = [].
 
-
-logical_expression_to_list(with(A,B), List).
-logical_expression_to_list(recipe(A), List).
-logical_expression_to_list(want(A, B), List).
-
-logical_expression_to_list(and(Expression1, Expression2), List) :-
-    logical_expression_to_list(Expression1, List1),
-    logical_expression_to_list(Expression2, List2),
-    append(List1, List2, List).
-
-logical_expression_to_list(some(Variable, Expression), List) :-
-    logical_expression_to_list(Expression, List).
+% Example usage:
+% ?- extract_constants(some(A, and(and(some(B, and(and(egg(B), milk(B)), with(A, B))), recipe(A)), want(mia, A))), Result).
+% Result = [egg, milk].

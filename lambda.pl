@@ -47,23 +47,18 @@
 
 :- [semRulesLambda].
 
-:- [semRulesLambda].
+:- [query].
 
 /*========================================================================
    Driver Predicates
 ========================================================================*/
 
+
+
 lambda:-
 	readLine(Sentence),
    lambda(Sentence,Sems),
-   Sems = .. [H|T],
-   logical_expression_to_list(H, Ingredients),
-	printRepresentations(Ingredients).
-
-# lambda:-
-# 	readLine(Sentence),
-#  lambda(Sentence,Sems),
-# 	printRepresentations(Sems).
+   printRepresentations(Sems).
 
   
 lambda(Sentence,Sems):-
