@@ -11,6 +11,9 @@ add_available_ingredient(Ingredient) :- % Predicate to add an available ingredie
 clear_available_ingredients :- % Predicate to clear all available ingredients
     retractall(available_ingredient(_)).
 
+list_available_ingredients(List) :-
+    findall(Ingredient, available_ingredient(Ingredient), List).
+
 /* [ingredient_substitute/2] */
 ask_for_substitute(Ingredient) :-
     format('What can be used as a substitute for ~w? (Type "none" if there is no substitute): ', [Ingredient]),
@@ -19,17 +22,22 @@ ask_for_substitute(Ingredient) :-
 
 /* [excluded_ingredients] */
 ask_for_excluded_ingredients :-
-    format('Is there any you cannot eat? (type "done" when finished): '),
+    format('Is there any you cannot eat? (type "none" when finished): '),
     read_line_to_string(user_input, Ingredient),
-    (Ingredient \= "done" -> assertz(excluded_ingredient(Ingredient)), ask_for_excluded_ingredients; true).
+    (Ingredient \= "none" -> assertz(excluded_ingredient(Ingredient)), ask_for_excluded_ingredients; true).
 
 /* [DATA STRUCTURE OPS] */
 equivalent_lists(List1, List2) :-
     sort(List1, Sorted),
     sort(List2, Sorted).
 
+member_of_both(ListA, ListB) :-
+    member(Element, ListA),
+    member(Element, ListB),
+    !. 
+
 /* [DATA LOADING AND PARSING] */
-load_recipes :-
+load_all :-
     write('Loading previous data...'), nl,
     retractall(available_ingredient(_)),
     retractall(ingredient_substitute(_)),
@@ -41,7 +49,7 @@ load_recipes :-
     maplist(assert_recipe, Rows),
     write('Recipes loaded successfully.').
 
-save_data :-
+save_all :-
     save_to_csv('user_data.csv').
     
 atom_to_list(Atom, List) :-
@@ -116,22 +124,49 @@ write_exclusions(_).
 
 /* [Main function] */
 % Predicate to recommend recipes based on available ingredients
-recommend_recipes(AvailableIngredients) :-
-    ask_for_excluded_ingredients,
+recommend_recipes() :-
+    list_available_ingredients(AvailableIngredients),
     findall(Recipe, (
         recipe(Recipe, RecipeIngredients, _, _),
         subset(RecipeIngredients, AvailableIngredients),
-        not_contains_excluded_ingredients(RecipeIngredients)
+        not_contains_excluded_ingredients(RecipeIngredients),
+        length(RecipeIngredients, Length),
+        Length > 2  % To avoid abnormal data
     ), CompleteMatches),
     findall((Recipe, MissingIngredients), (
         recipe(Recipe, RecipeIngredients, _, _),
-        subset(AvailableIngredients, RecipeIngredients),
+        member_of_both(AvailableIngredients, RecipeIngredients),
         \+ equivalent_lists(AvailableIngredients, RecipeIngredients),
         not_contains_excluded_ingredients(RecipeIngredients),
-        find_missing_ingredients(AvailableIngredients, RecipeIngredients, MissingIngredients)
+        find_missing_ingredients(AvailableIngredients, RecipeIngredients, MissingIngredients),
+        length(MissingIngredients, Length),
+        Length < 2
     ), PartialMatches),
     print_complete_matches(CompleteMatches),
-    print_partial_matches(PartialMatches).
+    format('~n~c[31m[Recipes with some ingredients missing]~c[0m                 \n',[27,27]),
+    print_partial_matches(PartialMatches, 20).
+
+% Predicate to recommend recipes based on available ingredients
+recommend_recipes(AvailableIngredients) :-
+    findall(Recipe, (
+        recipe(Recipe, RecipeIngredients, _, _),
+        subset(RecipeIngredients, AvailableIngredients),
+        not_contains_excluded_ingredients(RecipeIngredients),
+        length(RecipeIngredients, Length),
+        Length > 2  % To avoid abnormal data
+    ), CompleteMatches),
+    findall((Recipe, MissingIngredients), (
+        recipe(Recipe, RecipeIngredients, _, _),
+        member_of_both(AvailableIngredients, RecipeIngredients),
+        \+ equivalent_lists(AvailableIngredients, RecipeIngredients),
+        not_contains_excluded_ingredients(RecipeIngredients),
+        find_missing_ingredients(AvailableIngredients, RecipeIngredients, MissingIngredients),
+        length(MissingIngredients, Length),
+        Length < 2
+    ), PartialMatches),
+    print_complete_matches(CompleteMatches),
+    format('~n~c[31m[Recipes with some ingredients missing]~c[0m                 \n',[27,27]),
+    print_partial_matches(PartialMatches, 20).
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
 
 /* [PRINT RELATED FUNCTIONS] */
@@ -185,20 +220,20 @@ print_complete_matches([]) :-
     format('~n[No recipes found with all ingredients available]           \n',[]).
 
 print_complete_matches(CompleteMatches) :-
-    format('~n[Recipes with all ingredients ~c[34mavailable~c[0m]                \n',[27,27]),
+    format('~n~c[34m[Recipes with all ingredients available]~c[0m                \n',[27,27]),
     print_list_bold(CompleteMatches).
 
-% Print partial matches
-print_partial_matches([]) :-
+print_partial_matches([], _) :-
     format('~n[No recipes found with partial ingredients ~c[34mavailable~c[0m]          \n',[27,27]).
+print_partial_matches(_, 0). % Stop printing after 10 matches
+print_partial_matches([(Recipe, MissingIngredients) | Rest], Counter) :-
+    Counter > 0,
+    format('* ~c[1m~w~c[0m\nMissing ingredients: ', [27,Recipe,27]),
+    print_list_skip(MissingIngredients),
+    NewCounter is Counter - 1,
+    print_partial_matches(Rest, NewCounter).
 
-print_partial_matches(PartialMatches) :-
-    format('~n[Recipes with some ingredients ~c[31mmissing~c[0m]                 \n',[27,27]),
-    maplist(print_partial_match, PartialMatches).
 
-print_partial_match((Recipe, MissingIngredients)) :-
-    format('* ~c[1m~w~c[0m\nMissing ingredients\n', [27,Recipe,27]),
-    print_list_skip(MissingIngredients).
 
 % Predicate to print ingredients, highlighting missing ones in red
 print_ingredients([]).
@@ -232,8 +267,26 @@ find_missing_ingredients(Available, RecipeIngredients, Missing) :-
 
 
 
+/* USER INTERFACE */
 
+add_available_ingredient:-
+    format('~c[1mcommis:~c[0m Okay, What do you have?\n',[27,27]),
+    read_line_to_string(user_input, Ingredient),
+    assertz(available_ingredient(Ingredient)),
+    list_available_ingredients(AvailableIngredients),
+    format("Then now you have belows \n"),
+    print_list(AvailableIngredients).
 
+hey_commis :-
+    format('~c[1mcommis:~c[0m Hello, do you need help? :)\n',[27,27]),
+    format('    1.  (type "add") want to add available ingredients.\n'),
+    format('    2.  (type "exc") tell me ingredients you can\'t eat.\n'),
+    format('    3.  (type "tea") teach me substitute for ingredients.\n'),
+    read_line_to_string(user_input, Command),
+    (Command = "add" -> add_available_ingredient, !;
+     Command = "exc" -> format('hi'), !;
+     Command = "tea" -> format('hi'), !;
+     format("I cannot understand what yor say"), false).
 
 /*========================================================================
    Start Interface.
@@ -243,12 +296,12 @@ info:-
    format('~n>~c[1m ------------------------------------------------------------------- ~c[0m<',[27, 27]),
    format('~n>~c[1m Commis: food recommdender by Jaehwan Lee and Insun Baek             ~c[0m<',[27, 27]),
    format('~n>                                                                     <',[]),
-   format('~n> ?- ~c[32mload_recipes.~c[0m      - Load recipes from storage                   <',[27,27]),
-   format('~n> ?- ~c[32mrecommend_recipes.~c[0m - Ask Commis with available ingredients       <',[27,27]),
-   format('~n> ?- ~c[32mrecipe_details.~c[0m    - Commis will describe recipe in detail       <',[27,27]),
+   format('~n> ?- ~c[32mload_all.~c[0m      - Load recipes and user data from storage         <',[27,27]),
+   format('~n> ?- ~c[32msave_all.~c[0m      - Save recipes and user data to storage           <',[27,27]),
+   format('~n> ?- ~c[32mhey_commis.~c[0m    - Ask commis, interface to communicate            <',[27,27]),
    format('~n>                                                                     <',[]),
    format('~n> (Example)                                                           <',[]),
-   format('~n> ?- load_recipes.                                                    <',[]),
+   format('~n> ?- load_all.                                                    <',[]),
    format('~n> ?- recommend_recipes([\'sugar\', \'salt\', \'pork\', \'onion\']).           <',[]),
    format('~n> ?- recipe_details(\'pork strips\').                                   <',[]),
    format('~n>                                                                     <',[]),
