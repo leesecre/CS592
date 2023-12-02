@@ -44355,6 +44355,9 @@ extract_constants(and(A, B), Constants) :-
     extract_constants(B, BConstants),
     append(AConstants, BConstants, Constants).
 
+extract_constants(substitute(_, _), Constants) :-
+    Constants = [].
+    
 extract_constants(for(_, _), Constants) :-
     Constants = [].
 
