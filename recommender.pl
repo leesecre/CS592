@@ -43,8 +43,13 @@ list_available_ingredients(List) :-
 /* [ingredient_substitute/2] */
 ask_for_substitute(Ingredient) :-
     format('What can be used as a substitute for ~w? (Type "none" if there is no substitute): ', [Ingredient]),
-    read_line_to_string(user_input, Substitute),
-    (Substitute \= "none" -> assertz(ingredient_substitute(Substitute, Ingredient)); true).
+    read_line_to_string(user_input, SubstituteString),
+    string_lower(SubstituteString, Substitute), % Convert to lowercase for consistency
+    (Substitute \= "none" 
+    -> (atom_string(SubstituteAtom, Substitute),
+        assertz(ingredient_substitute(SubstituteAtom, Ingredient)),
+        ask_for_substitute(Ingredient))
+    ;true).
 
 /* [excluded_ingredients] */
 ask_for_excluded_ingredients :-
@@ -162,7 +167,7 @@ recommend_recipes() :-
     list_available_ingredients(AvailableIngredients),
     findall((Recipe, Length), (
         recipe(Recipe, RecipeIngredients, _, _),
-        subset(RecipeIngredients, AvailableIngredients),
+        ingredients_available_or_substituted(RecipeIngredients, AvailableIngredients),
         not_contains_excluded_ingredients(RecipeIngredients),
         length(RecipeIngredients, Length),
         Length > 4  % To avoid abnormal data
@@ -170,6 +175,7 @@ recommend_recipes() :-
     findall((Recipe, MissingIngredients), (
         recipe(Recipe, RecipeIngredients, _, _),
         member_of_both(AvailableIngredients, RecipeIngredients),
+        \+ ingredients_available_or_substituted(RecipeIngredients, AvailableIngredients),
         \+ subset(RecipeIngredients, AvailableIngredients),
         \+ equivalent_lists(AvailableIngredients, RecipeIngredients),
         not_contains_excluded_ingredients(RecipeIngredients),
@@ -187,7 +193,7 @@ recommend_recipes() :-
 recommend_recipes(AvailableIngredients) :-
     findall((Recipe, Length), (
         recipe(Recipe, RecipeIngredients, _, _),
-        subset(RecipeIngredients, AvailableIngredients),
+        ingredients_available_or_substituted(RecipeIngredients, AvailableIngredients),
         not_contains_excluded_ingredients(RecipeIngredients),
         length(RecipeIngredients, Length),
         Length > 4  % To avoid abnormal data
@@ -195,6 +201,7 @@ recommend_recipes(AvailableIngredients) :-
     findall((Recipe, MissingIngredients), (
         recipe(Recipe, RecipeIngredients, _, _),
         member_of_both(AvailableIngredients, RecipeIngredients),
+        \+ ingredients_available_or_substituted(RecipeIngredients, AvailableIngredients),
         \+ subset(RecipeIngredients, AvailableIngredients),
         \+ equivalent_lists(AvailableIngredients, RecipeIngredients),
         not_contains_excluded_ingredients(RecipeIngredients),
@@ -326,6 +333,15 @@ not_contains_excluded_ingredients(RecipeIngredients) :-
 find_missing_ingredients(Available, RecipeIngredients, Missing) :-
     subtract(RecipeIngredients, Available, Missing).
 
+% Checks if all ingredients are available or have a substitute
+ingredients_available_or_substituted(RecipeIngredients, AvailableIngredients) :-
+    forall(member(Ingredient, RecipeIngredients),
+           (member(Ingredient, AvailableIngredients) ; substitute_available(Ingredient, AvailableIngredients))).
+
+% Checks if there is an available substitute for the given ingredient
+substitute_available(Ingredient, AvailableIngredients) :-
+    ingredient_substitute(Ingredient, Substitute),
+    member(Substitute, AvailableIngredients).
 
 
 /* USER INTERFACE */
