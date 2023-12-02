@@ -14998,6 +14998,9 @@ lexEntry(tv,[symbol:want,syntax:[want],inf:inf,num:sg]).
 lexEntry(tv,[symbol:want,syntax:[wants],inf:fin,num:sg]).
 lexEntry(tv,[symbol:want,syntax:[want],inf:fin,num:pl]).
 
+lexEntry(tv,[symbol:substitute,syntax:[substitute],inf:inf,num:sg]).
+lexEntry(tv,[symbol:substitute,syntax:[substitutes],inf:fin,num:sg]).
+lexEntry(tv,[symbol:substitute,syntax:[substitute],inf:fin,num:pl]).
 
 /*========================================================================
    Copula
