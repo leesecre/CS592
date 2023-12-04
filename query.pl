@@ -44339,6 +44339,18 @@ extract_constants(fakeblueberrycheesecake(_), Constants) :-
 extract_constants(yuzujuice(_), Constants) :-
     Constants = ['yuzu juice'].
 
+extract_constants(cheeseomelette(_), Constants) :-
+    Constants = ['cheese omelette'].
+
+extract_constants(bakedeggsonabedofpotatoeswithbacon(_), Constants) :-
+    Constants = ['baked eggs on a bed of potatoes with bacon'].
+
+extract_constants(busiaspolishkluski(_), Constants) :-
+    Constants = ['busia s polish kluski'].
+
+extract_constants(kluski(_), Constants) :-
+    Constants = ['kluski'].
+
 extract_constants(milk(_), Constants) :-
     Constants = ['milk'].
 

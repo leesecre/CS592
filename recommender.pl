@@ -187,7 +187,7 @@ recommend_recipes() :-
     ), PartialMatches),
     print_complete_matches(CompleteMatches),
     format('~n~c[31m[Recipes with some ingredients missing]~c[0m                 \n',[27,27]),
-    print_partial_matches(PartialMatches, 20).
+    print_partial_matches(PartialMatches, 15).
 
 % Predicate to recommend recipes based on available ingredients
 recommend_recipes(AvailableIngredients) :-
@@ -307,9 +307,12 @@ print_ingredients([Ingredient|Rest]) :-
 
 print_ingredient(Ingredient) :-
     available_ingredient(Ingredient),
-    format('~w', [Ingredient]).
+    format('~w', [Ingredient]), !.
 print_ingredient(Ingredient) :-
     \+ available_ingredient(Ingredient),
+    available_ingredient(AvailIngredient),
+    ingredient_substitute(Ingredient, AvailIngredient),
+    print_blue(Ingredient), !;
     print_red(Ingredient).
 
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
@@ -401,8 +404,16 @@ commis_exclude:-
     format(']\n').
 
 
+assert_substitute([SubstituteAtom, _, Ingredient|_]) :-
+    assertz(ingredient_substitute(SubstituteAtom, Ingredient)).
+
 commis_sub:-
-    format('TODO').
+    format('~c[1mcommis:~c[0m Can you teach me substitution informations? \n',[27,27]),
+    readLine(Sentence),
+    commis(Sentence,Sems),
+    nth0(0,Sems,Sem),
+    extract_constants(Sem,Substitute),
+    assert_substitute(Substitute).
 
 commis_ask:-
     recommend_recipes.
@@ -413,7 +424,8 @@ commis_detail:-
     commis(Sentence,Sems),
     nth0(0,Sems,Sem),
     extract_constants(Sem,Recipe),
-    recipe_details(Recipe).
+    member(RecipeAtom, Recipe),
+    recipe_details(RecipeAtom).
 
 hey_commis :-
     format('~c[1mcommis:~c[0m Hello, do you need help? :)\n',[27,27]),
